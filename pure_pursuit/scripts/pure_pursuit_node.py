@@ -6,6 +6,8 @@ import numpy as np
 from sensor_msgs.msg import LaserScan
 from ackermann_msgs.msg import AckermannDriveStamped, AckermannDrive
 # TODO CHECK: include needed ROS msg type headers and libraries
+from geometry_msgs.msg import PoseStamped
+
 
 class PurePursuit(Node):
     """ 
@@ -15,6 +17,11 @@ class PurePursuit(Node):
     def __init__(self):
         super().__init__('pure_pursuit_node')
         # TODO: create ROS subscribers and publishers
+        # self.create_subscription(LaserScan, '/scan', self.scan_callback, 10)
+        self.create_subscription(PoseStamped, '/pf/viz/inferred_pose', self.pose_callback, 10)
+        self.create_publisher(AckermannDriveStamped, '/drive', 10)
+
+
 
     def pose_callback(self, pose_msg):
         pass
