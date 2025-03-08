@@ -21,4 +21,12 @@ def generate_launch_description():
          name='pure_pursuit_node',
          parameters=[config]
       )
+      # ,
+      # Node(
+      #    package='pure_pursuit',
+      #    executable='waypoints_logger.py',
+      #    namespace='',
+      #    name='waypoints_logger',
+      #    parameters=[config]
+      # )
    ])
