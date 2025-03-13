@@ -10,6 +10,7 @@ from ackermann_msgs.msg import AckermannDriveStamped, AckermannDrive
 from geometry_msgs.msg import PoseStamped, Point
 from visualization_msgs.msg import MarkerArray, Marker
 from ament_index_python.packages import get_package_share_directory
+from scipy.interpolate import splprep, splev
 
 
 class PurePursuit(Node):
@@ -22,7 +23,7 @@ class PurePursuit(Node):
         self.sim = True
         self.lookahead_distance = 1.0  # Initial lookahead distance
         self.waypoints = []  # List of waypoints
-        self.curvature_gain = 1.0  # Gain on the curvature
+        self.curvature_gain = 0.5  # Gain on the curvature
         if self.sim:
             self.create_subscription(Odometry, '/ego_racecar/odom', self.pose_callback, 10)
         else:
@@ -31,7 +32,24 @@ class PurePursuit(Node):
         self.drive_publisher = self.create_publisher(AckermannDriveStamped, '/drive', 10)
         package_share_directory = get_package_share_directory('pure_pursuit')
         waypoint_file_path = package_share_directory + '/config/wp-2025-03-08-01-27-47_first_complete_loop.csv'
+        
         self.load_waypoints(waypoint_file_path)  # Load waypoints from CSV file
+
+        self.waypoints = np.array(self.waypoints)
+        x = self.waypoints[:, 0]
+        y = self.waypoints[:, 1]
+        t = np.linspace(0, 1, len(x))
+
+        # 2D B-Spline
+        tck, u = splprep([x, y], s=8.0, k=3, per=True)  # k=3 for cubic spline
+
+        t_smooth = np.linspace(0, 1, len(x))
+        x_smooth, y_smooth = splev(t_smooth, tck)
+
+        self.waypoints = np.vstack((x_smooth, y_smooth)).T
+
+        self.waypoints = self.waypoints.tolist()
+
         self.marker_publisher = self.create_publisher(MarkerArray, '/graph_visualization', 10)
         self.publish_waypoints_markers()
 
@@ -39,7 +57,7 @@ class PurePursuit(Node):
         if self.sim:
             pose_msg = pose_msg.pose
         # Dynamically adjust the lookahead distance based on speed or other factors
-        self.adjust_lookahead_distance()
+        # self.adjust_lookahead_distance()
 
         # Find the current waypoint to track
         current_waypoint = self.find_current_waypoint(pose_msg)
@@ -99,7 +117,8 @@ class PurePursuit(Node):
             reader = csv.reader(csvfile)
             for row in reader:
                 x, y = float(row[0]), float(row[1])
-                self.waypoints.append((x, y))
+                if float(row[3]) != 0:
+                    self.waypoints.append((x, y))
 
     def publish_waypoints_markers(self, current_waypoint=None):
         marker_array = MarkerArray()
@@ -148,7 +167,7 @@ class PurePursuit(Node):
         drive_msg.drive.steering_angle = steering_angle
 
         # Calculate speed based on the steering angle
-        max_speed = 2.0  # Maximum speed
+        max_speed = 3.0  # Maximum speed
         min_speed = 0.5  # Minimum speed
         max_steering_angle = np.pi / 4  # Maximum steering angle (45 degrees)
         
