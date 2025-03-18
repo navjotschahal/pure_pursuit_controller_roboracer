@@ -1,0 +1,9 @@
+pure_pursuit_node:
+  ros__parameters:
+    lookahead_distance: 3.0
+    curvature_gain: 0.2
+    waypoint_file_path_in_package: "/config/wp-2025-03-08-01-27-47_first_complete_loop.csv"
+    max_speed: 5.0
+    min_speed: 0.5
+    max_steering_angle: 0.7853981633974483  # np.pi / 4
+    sim: False
