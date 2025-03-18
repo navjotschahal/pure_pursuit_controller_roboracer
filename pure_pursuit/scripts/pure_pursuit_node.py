@@ -60,8 +60,8 @@ class PurePursuit(Node):
 
         self.smooth_waypoints()
 
-        self.marker_publisher = self.create_publisher(MarkerArray, '/graph_visualization', 10)
-        self.publish_waypoints_markers()
+        # self.marker_publisher = self.create_publisher(MarkerArray, '/graph_visualization', 10)
+        # self.publish_waypoints_markers()
 
     def smooth_waypoints(self):
         self.waypoints = np.array(self.waypoints)
@@ -80,8 +80,7 @@ class PurePursuit(Node):
         self.waypoints = self.waypoints.tolist()
 
     def pose_callback(self, pose_msg):
-        if self.sim:
-            pose_msg = pose_msg.pose
+        pose_msg = pose_msg.pose
         # Dynamically adjust the lookahead distance based on speed or other factors
         # self.adjust_lookahead_distance()
 
@@ -100,7 +99,7 @@ class PurePursuit(Node):
 
             # Publish drive message
             self.publish_drive_message(steering_angle)
-        self.publish_waypoints_markers(current_waypoint)
+        # self.publish_waypoints_markers(current_waypoint)
 
     def adjust_lookahead_distance(self):
         # Adjust the lookahead distance dynamically
@@ -220,7 +219,8 @@ class PurePursuit(Node):
         max_steering_angle = self.max_steering_angle  # Maximum steering angle (45 degrees)
         
         # Speed is inversely proportional to the absolute value of the steering angle
-        speed = max_speed - (max_speed - min_speed) * (abs(steering_angle) / max_steering_angle)
+        # speed = max_speed - (max_speed - min_speed) * (abs(steering_angle) / max_steering_angle)
+        speed = max_speed * (1 - (abs(steering_angle) / max_steering_angle))
         speed = max(min_speed, min(max_speed, speed))  # Ensure speed is within bounds
 
         drive_msg.drive.speed = speed
