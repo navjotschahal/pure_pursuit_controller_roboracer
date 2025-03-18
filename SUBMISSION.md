@@ -14,3 +14,7 @@
 [Simulation video (pure pursuit) on slam generated map, pf recorded waypoints](https://youtu.be/S7bNRp5Hh-8)
 
 [Simulation video very high velocity param setting (pure pursuit) on slam generated map, pf recorded waypoints](https://youtu.be/didZG1VLsxw)
+
+[Real world Hallway 5 mps very high speed setting drifting pure pursuit ](https://youtube.com/shorts/J2MQb4VQ20o?feature=share)
+
+[Real world hallway safe config setting purepursuit Lab5](https://youtube.com/shorts/piImv769SY4?feature=share)
