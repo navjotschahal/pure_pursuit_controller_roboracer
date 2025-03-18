@@ -12,3 +12,5 @@
 ## YouTube video link
 
 [Simulation video (pure pursuit) on slam generated map, pf recorded waypoints](https://youtu.be/S7bNRp5Hh-8)
+
+[Simulation video very high velocity param setting (pure pursuit) on slam generated map, pf recorded waypoints](https://youtu.be/didZG1VLsxw)
