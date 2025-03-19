@@ -30,11 +30,12 @@ class PurePursuit(Node):
                 ('max_speed', 3.0),
                 ('min_speed', 0.5),
                 ('max_steering_angle', np.pi / 4),
-                ('sim', True)
-
+                ('sim', True),
+                ('map_sim', False)
             ]
         )
         self.sim = self.get_parameter("sim").get_parameter_value().bool_value
+        self.map_sim = self.get_parameter("map_sim").get_parameter_value().bool_value
         self.lookahead_distance = self.get_parameter("lookahead_distance").get_parameter_value().double_value  # Initial lookahead distance
         self.max_speed = self.get_parameter("max_speed").get_parameter_value().double_value  # Maximum speed
         self.min_speed = self.get_parameter("min_speed").get_parameter_value().double_value  # Minimum speed
@@ -62,8 +63,9 @@ class PurePursuit(Node):
 
         self.marker_array = MarkerArray()
 
-        self.marker_publisher = self.create_publisher(MarkerArray, '/graph_visualization', 10)
-        self.publish_waypoints_markers()
+        if self.map_sim:
+            self.marker_publisher = self.create_publisher(MarkerArray, '/graph_visualization', 10)
+            self.publish_waypoints_markers()
 
     def smooth_waypoints(self):
         self.waypoints = np.array(self.waypoints)
@@ -101,7 +103,8 @@ class PurePursuit(Node):
 
             # Publish drive message
             self.publish_drive_message(steering_angle)
-        self.publish_waypoints_markers(current_waypoint)
+        if self.map_sim:
+            self.publish_waypoints_markers(current_waypoint)
 
     def adjust_lookahead_distance(self):
         # Adjust the lookahead distance dynamically
