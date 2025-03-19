@@ -60,8 +60,10 @@ class PurePursuit(Node):
 
         self.smooth_waypoints()
 
-        # self.marker_publisher = self.create_publisher(MarkerArray, '/graph_visualization', 10)
-        # self.publish_waypoints_markers()
+        self.marker_array = MarkerArray()
+
+        self.marker_publisher = self.create_publisher(MarkerArray, '/graph_visualization', 10)
+        self.publish_waypoints_markers()
 
     def smooth_waypoints(self):
         self.waypoints = np.array(self.waypoints)
@@ -99,7 +101,7 @@ class PurePursuit(Node):
 
             # Publish drive message
             self.publish_drive_message(steering_angle)
-        # self.publish_waypoints_markers(current_waypoint)
+        self.publish_waypoints_markers(current_waypoint)
 
     def adjust_lookahead_distance(self):
         # Adjust the lookahead distance dynamically
@@ -162,7 +164,7 @@ class PurePursuit(Node):
         # marker_array_d.markers.append(marker_target_way_point)
         # self.marker_publisher.publish(marker_array_d)
 
-        marker_array = MarkerArray()
+        marker_array = self.marker_array
 
         for i, waypoint in enumerate(way_point_copy):
             marker = Marker()
