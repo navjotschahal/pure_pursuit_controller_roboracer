@@ -48,6 +48,7 @@ class PurePursuit(Node):
         self.waypoints = []  # List of waypoints
 
         if self.sim:
+            self.get_logger().info("Sim mode")
             self.create_subscription(Odometry, '/ego_racecar/odom', self.pose_callback, 10)
         else:
             self.create_subscription(Odometry, '/pf/pose/odom', self.pose_callback, 10)
@@ -91,6 +92,10 @@ class PurePursuit(Node):
         # Find the current waypoint to track
         current_waypoint = self.find_current_waypoint(pose_msg)
 
+        # current_position = (pose_msg.pose.pose.position.x, pose_msg.pose.pose.position.y)
+        # current_yaw = self.get_yaw_from_quaternion(pose_msg.pose.pose.orientation)
+
+
         if current_waypoint is not None:
             # Transform goal point to vehicle frame of reference
             goal_point_vehicle_frame = self.transform_to_vehicle_frame(pose_msg, current_waypoint)
@@ -106,6 +111,22 @@ class PurePursuit(Node):
         if self.map_sim:
             self.publish_waypoints_markers(current_waypoint)
 
+    def get_yaw_from_quaternion(self, quaternion):
+            """
+            Convert a quaternion to yaw (rotation around the z-axis).
+            """
+            x = quaternion.x
+            y = quaternion.y
+            z = quaternion.z
+            w = quaternion.w
+
+            # Calculate yaw
+            siny_cosp = 2 * (w * z + x * y)
+            cosy_cosp = 1 - 2 * (y * y + z * z)
+            yaw = np.arctan2(siny_cosp, cosy_cosp)
+
+            return yaw
+    
     def adjust_lookahead_distance(self):
         # Adjust the lookahead distance dynamically
         # Example: Adjust based on speed (this is a placeholder, replace with actual logic)
@@ -149,7 +170,7 @@ class PurePursuit(Node):
     
     def load_waypoints(self, csv_file_path):
         with open(csv_file_path, 'r') as csvfile:
-            reader = csv.reader(csvfile)
+            reader = csv.reader(csvfile, delimiter=';')
             for row in reader:
                 x, y = float(row[0]), float(row[1])
                 if float(row[3]) != 0:
