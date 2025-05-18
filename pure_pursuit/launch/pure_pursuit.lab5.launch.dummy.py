@@ -16,9 +16,9 @@ def generate_launch_description():
    return LaunchDescription([
       Node(
          package='pure_pursuit',
-         executable='pure_pursuit_node.py',
+         executable='pure_pursuit_node_d.py',
          namespace='',
-         name='pure_pursuit_node',
+         name='pure_pursuit_node_d',
          parameters=[config]
       )
    ])

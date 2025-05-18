@@ -33,6 +33,8 @@ class PurePursuit(Node):
                 ('sim', True),
                 ('map_sim', False),
                 ('is_debug', False),
+                ('odom_topic', '/pf/pose/odom'),
+                ('drive_topic', '/drive'),
             ]
         )
         self.sim = self.get_parameter("sim").get_parameter_value().bool_value
@@ -43,6 +45,9 @@ class PurePursuit(Node):
         self.max_steering_angle = self.get_parameter("max_steering_angle").get_parameter_value().double_value  # Maximum steering angle
         self.curvature_gain = self.get_parameter("curvature_gain").get_parameter_value().double_value  # Curvature gain
         self.waypoint_file_path_in_package = self.get_parameter("waypoint_file_path_in_package").get_parameter_value().string_value  # Waypoint file path
+        self.is_debug = self.get_parameter("is_debug").get_parameter_value().bool_value  # Debug mode
+        self.odom_topic = self.get_parameter("odom_topic").get_parameter_value().string_value  # Odom topic
+        self.drive_topic = self.get_parameter("drive_topic").get_parameter_value().string_value
 
         self.current_speed = 0.0  # Current speed
 
@@ -50,12 +55,12 @@ class PurePursuit(Node):
 
         if self.sim:
             self.get_logger().info("Sim mode")
-            self.create_subscription(Odometry, '/opp_racecar/odom', self.pose_callback, 10)
+            self.create_subscription(Odometry, self.odom_topic, self.pose_callback, 10)
         else:
             self.create_subscription(Odometry, '/pf/pose/odom', self.pose_callback, 10)
 
 
-        self.drive_publisher = self.create_publisher(AckermannDriveStamped, '/opp_drive' if self.sim else '/drive', 10)
+        self.drive_publisher = self.create_publisher(AckermannDriveStamped, self.drive_topic if self.sim else '/drive', 10)
 
         package_share_directory = get_package_share_directory('pure_pursuit')
         waypoint_file_path = package_share_directory + self.waypoint_file_path_in_package
