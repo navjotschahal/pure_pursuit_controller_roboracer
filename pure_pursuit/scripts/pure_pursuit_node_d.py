@@ -31,7 +31,8 @@ class PurePursuit(Node):
                 ('min_speed', 0.5),
                 ('max_steering_angle', np.pi / 4),
                 ('sim', True),
-                ('map_sim', False)
+                ('map_sim', False),
+                ('is_debug', False),
             ]
         )
         self.sim = self.get_parameter("sim").get_parameter_value().bool_value
@@ -103,14 +104,13 @@ class PurePursuit(Node):
 
             # Calculate curvature/steering angle
             curvature = self.calculate_curvature(goal_point_vehicle_frame)
-            self.get_logger().info(f'Curvature gain: {self.curvature_gain}')
+            if self.is_debug:
+                self.get_logger().info(f'Curvature gain: {self.curvature_gain}')
             
             steering_angle = np.arctan(curvature * self.lookahead_distance * self.curvature_gain)
 
             # Publish drive message
             self.publish_drive_message(steering_angle)
-        if self.map_sim:
-            self.publish_waypoints_markers(current_waypoint)
 
     def get_yaw_from_quaternion(self, quaternion):
             """
@@ -138,7 +138,8 @@ class PurePursuit(Node):
         car_x = pose_msg.pose.position.x
         car_y = pose_msg.pose.position.y
 
-        self.get_logger().info(f'Car position: ({car_x}, {car_y})')
+        if self.is_debug:
+            self.get_logger().info(f'Car position: ({car_x}, {car_y})')
 
         closest_waypoint = None
         next_waypoint = None

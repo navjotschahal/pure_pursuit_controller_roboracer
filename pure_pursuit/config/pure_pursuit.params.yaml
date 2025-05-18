@@ -25,3 +25,4 @@ pure_pursuit_node_d:
     max_steering_angle: 0.7853981633974483  # np.pi / 4
     sim: True
     map_sim: False
+    is_debug: False
