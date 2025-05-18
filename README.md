@@ -37,17 +37,4 @@ Usually, you'll just save the waypoints as `.csv` files with columns such as `[x
 
 To visualize the list of waypoints you have, and to visualize the current waypoint you're picking, you'll need to use the `visualization_msgs` messages and RViz. You can find some information [here](http://wiki.ros.org/rviz/DisplayTypes/Marker).
 
-## VII. Deliverables
 
-- **Deliverable 1**: Submit the map files (levine_2nd.pgm and levine_2nd.yaml) that you've made using `slam_toolbox`.
-- **Deliverable 2**: Commit your pure pursuit package to GitHub. Your commited code should run smoothly in simulation.
-- **Deliverable 3**: Submit a link to a video on YouTube showing the real car following waypoints in Levine hallway. Show a screen recording of rviz. 
-
-## VIII: Grading Rubric
-- Compilation: **10** Points
-- Running slam_toolbox and producing a map: **30** Points
-- Running particle_filter: **20** Points
-- Implementing pure pursuit: **20** Points
-- 2x Videos:
-  - In-sim **10** Points
-  - On-Car **10** Points
