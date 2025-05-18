@@ -1,9 +1,27 @@
 pure_pursuit_node:
   ros__parameters:
-    lookahead_distance: 3.0
-    curvature_gain: 0.2
-    waypoint_file_path_in_package: "/config/wp-2025-03-08-01-27-47_first_complete_loop.csv"
-    max_speed: 5.0
-    min_speed: 0.5
+    lookahead_distance: 1.4
+    curvature_gain: 0.6
+    # waypoint_file_path_in_package: "/config/wp-2025-03-08-01-27-47_first_complete_loop.csv"
+    # waypoint_file_path_in_package: "/config/wp-2025-03-19-00-25-36.csv"
+    waypoint_file_path_in_package: "/config/map3_levine_3lanes_waypoints_left.csv"
+    lane1_file_path: "/config/pennovation/waypoints/race1_waypoints.csv"
+    lane2_file_path: "/config/pennovation/waypoints/race1_waypoints.csv"
+    lane3_file_path: "/config/pennovation/waypoints/race1_waypoints_right.csv"
+    max_speed: 6.0
+    min_speed: 2.5
     max_steering_angle: 0.7853981633974483  # np.pi / 4
-    sim: False
+    sim: True
+    map_sim: True
+
+pure_pursuit_node_d:
+  ros__parameters:
+    lookahead_distance: 1.2
+    curvature_gain: 0.5
+    waypoint_file_path_in_package: "/config/pennovation/waypoints/map1_edited_waypoints.csv"
+    # waypoint_file_path_in_package: "/config/wp-2025-03-19-00-25-36.csv"
+    max_speed: 3.0
+    min_speed: 1.5
+    max_steering_angle: 0.7853981633974483  # np.pi / 4
+    sim: True
+    map_sim: False
