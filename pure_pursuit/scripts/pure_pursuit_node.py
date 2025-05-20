@@ -37,6 +37,12 @@ class PurePursuit(Node):
                 ('max_steering_angle', np.pi / 4),
                 ('sim', True),
                 ('map_sim', False),
+                # --------------------------------------------------------------------------------
+                ('min_lookahead', 0.9),
+                ('max_lookahead', 1.2),
+                ('min_radius',   1.0),    # m
+                ('max_radius',  10.0),    # m
+                #--------------------------------------------------------------------------------
                 # Obstacle detection parameters
                 ('obstacle_detection_distance', 3.0),  # How far ahead to check for obstacles
                 ('obstacle_proximity_threshold', 0.3),  # How close to waypoints to consider a lane blocked
@@ -53,6 +59,10 @@ class PurePursuit(Node):
         self.min_speed = self.get_parameter("min_speed").get_parameter_value().double_value
         self.max_steering_angle = self.get_parameter("max_steering_angle").get_parameter_value().double_value
         self.curvature_gain = self.get_parameter("curvature_gain").get_parameter_value().double_value
+        self.min_lookahead = self.get_parameter("min_lookahead").get_parameter_value().double_value
+        self.max_lookahead = self.get_parameter("max_lookahead").get_parameter_value().double_value
+        self.min_radius = self.get_parameter("min_radius").get_parameter_value().double_value
+        self.max_radius = self.get_parameter("max_radius").get_parameter_value().double_value
         
         # Get lane file paths
         self.lane1_file_path = self.get_parameter("lane1_file_path").get_parameter_value().string_value
@@ -117,6 +127,66 @@ class PurePursuit(Node):
             self.publish_waypoints_markers()
             
         self.get_logger().info(f"Pure pursuit initialized with obstacle detection. Active lane: {self.active_lane}")
+
+
+        # -------------- NEW: publishes the look‑ahead circle + point -----------------------------
+        self.lookahead_pub = self.create_publisher(MarkerArray, '/lookahead_viz', 10)
+
+    def publish_lookahead_visualisation(self, car_x, car_y, lookahead_distance, goal_x, goal_y):
+        """
+        Publish two markers:
+            • a LINE_STRIP circle with radius = lookahead_distance
+            • a SPHERE at the look‑ahead point on the path
+        Topic: /lookahead_viz   (MarkerArray)
+        """
+        marker_array = MarkerArray()
+
+        # ------------- circle -------------
+        circle = Marker()
+        circle.header.frame_id = "map"
+        circle.header.stamp = self.get_clock().now().to_msg()
+        circle.ns = "lookahead"
+        circle.id = 0
+        circle.type = Marker.LINE_STRIP
+        circle.action = Marker.ADD
+        circle.scale.x = 0.03                  # line width
+        circle.color.r = 0.0
+        circle.color.g = 0.5
+        circle.color.b = 1.0
+        circle.color.a = 1.0
+        circle.pose.orientation.w = 1.0
+
+        # approximate circle with 36 points
+        for k in range(37):
+            ang = 2*np.pi * k / 36
+            p = Point()
+            p.x = car_x + lookahead_distance * np.cos(ang)
+            p.y = car_y + lookahead_distance * np.sin(ang)
+            p.z = 0.0
+            circle.points.append(p)
+        marker_array.markers.append(circle)
+
+        # ------------- look‑ahead point -------------
+        lap = Marker()
+        lap.header.frame_id = "map"
+        lap.header.stamp = circle.header.stamp
+        lap.ns = "lookahead"
+        lap.id = 1
+        lap.type = Marker.SPHERE
+        lap.action = Marker.ADD
+        lap.pose.position = Point(x=goal_x, y=goal_y, z=0.0)
+        lap.pose.orientation.w = 1.0
+        lap.scale.x = lap.scale.y = lap.scale.z = 0.22
+        lap.color.r = 1.0
+        lap.color.g = 0.0
+        lap.color.b = 0.0
+        lap.color.a = 1.0
+        marker_array.markers.append(lap)
+
+        # publish
+        self.lookahead_pub.publish(marker_array)
+
+#       # -------------- END: publishes the look‑ahead circle + point -----------------------------
 
     def scan_callback(self, msg):
         """Process laser scan data to detect obstacles"""
@@ -352,14 +422,30 @@ class PurePursuit(Node):
 
     def pose_callback(self, pose_msg):
         # Store current pose for obstacle detection
-        self.current_pose = pose_msg.pose.pose
+        pose = pose_msg.pose.pose
+
+        # --- adaptive look‑ahead -----------------------------------------------
+        κ = self.compute_path_curvature(pose)          # new helper
+        self.adjust_lookahead_distance(κ)              # updates self.lookahead_distance
+        # --- end: adaptive look‑ahead ------------------------------------
+
         
         # Find the current waypoint to track in the active lane
-        current_waypoint = self.find_current_waypoint(pose_msg.pose)
+        current_waypoint = self.find_current_waypoint(pose)
 
         if current_waypoint is not None:
+            # ---New: viz: look‑ahead circle & point in global frame ------------------------
+            car_x = pose.position.x
+            car_y = pose.position.y
+            self.publish_lookahead_visualisation(
+                car_x, car_y,
+                self.lookahead_distance,
+                current_waypoint[0], current_waypoint[1])
+            # ---End: viz: look‑ahead circle & point in global frame ------------------------
+
             # Transform goal point to vehicle frame of reference
-            goal_point_vehicle_frame = self.transform_to_vehicle_frame(pose_msg.pose, current_waypoint)
+            goal_point_vehicle_frame = self.transform_to_vehicle_frame(pose, current_waypoint)
+
 
             # Calculate curvature/steering angle
             curvature = self.calculate_curvature(goal_point_vehicle_frame)
@@ -370,15 +456,66 @@ class PurePursuit(Node):
             self.publish_drive_message(steering_angle)
             
             
+    def compute_path_curvature(self, pose, sample_size=5):
+        """
+        Three‑point estimate of path curvature κ (1/m) around the car.
+        """
+        car_xy = np.array([pose.position.x, pose.position.y])
 
-    def adjust_lookahead_distance(self):
+        # nearest waypoint index
+        wp = np.array(self.lanes[self.active_lane]) 
+        dists = np.linalg.norm(wp - car_xy, axis=1)
+        idx0  = int(np.argmin(dists))
+
+        # take a short arc ahead
+        pts = [wp[(idx0 + i) % len(wp)] for i in range(sample_size)]
+        if len(pts) < 3:
+            return 0.0
+        p1, p2, p3 = pts[0], pts[len(pts)//2], pts[-1]
+
+        # triangle area (×2)   (shoelace formula)
+        area2 = p1[0]*(p2[1]-p3[1]) + p2[0]*(p3[1]-p1[1]) + p3[0]*(p1[1]-p2[1])
+        if abs(area2) < 1e-6:
+            return 0.0
+
+        # side lengths
+        a = np.linalg.norm(p2-p3)
+        b = np.linalg.norm(p1-p3)
+        c = np.linalg.norm(p1-p2)
+        s = 0.5*(a+b+c)
+        tri_area = max(1e-6, np.sqrt(s*(s-a)*(s-b)*(s-c)))
+        R = (a*b*c)/(4*tri_area)          # circumscribed circle radius
+        return 1.0/R
+
+    
+    def adjust_lookahead_distance(self, curvature):
         # Adjust the lookahead distance dynamically
-        current_speed = self.current_speed
-        self.lookahead_distance = max(0.9, min(2.0, current_speed * 0.1))
+        # Example: Adjust based on speed (this is a placeholder, replace with actual logic)
+        current_speed = self.current_speed  # Placeholder for current speed
+        self._logger.info(f'Current speed: {current_speed}')
+        # self.lookahead_distance = max(0.9, min(2.0, current_speed * 0.1))
+        # self._logger.info(f'Lookahead distance: {self.lookahead_distance}')
 
-    def find_current_waypoint(self, pose_msg):
-        car_x = pose_msg.pose.position.x
-        car_y = pose_msg.pose.position.y
+        """
+        Map path curvature → look‑ahead distance.
+        Tighter curve → shorter preview, straight → longer.
+        """
+        if abs(curvature) < 1e-6:
+            radius = self.max_radius
+        else:
+            radius = min(max(1.0/abs(curvature), self.min_radius), self.max_radius)
+
+        t = (radius - self.min_radius) / (self.max_radius - self.min_radius)
+        self.lookahead_distance = (
+            self.min_lookahead + t * (self.max_lookahead - self.min_lookahead)
+        )
+        # debug
+        self._logger.info(
+            f"κ={curvature:.3f}  R={radius:.2f}  Ld={self.lookahead_distance:.2f}")
+
+    def find_current_waypoint(self, pose):
+        car_x = pose.position.x
+        car_y = pose.position.y
         
         # Get waypoints from active lane
         waypoints = self.lanes[self.active_lane]
@@ -510,11 +647,11 @@ class PurePursuit(Node):
         
         self.marker_publisher.publish(marker_array)
 
-    def transform_to_vehicle_frame(self, pose_msg, waypoint):
+    def transform_to_vehicle_frame(self, pose, waypoint):
         # Implement transformation from global frame to vehicle frame
-        dx = waypoint[0] - pose_msg.pose.position.x
-        dy = waypoint[1] - pose_msg.pose.position.y
-        yaw = self.get_yaw_from_pose(pose_msg.pose.orientation)
+        dx = waypoint[0] - pose.position.x
+        dy = waypoint[1] - pose.position.y
+        yaw = self.get_yaw_from_pose_only(pose) 
         x_vehicle = dx * np.cos(yaw) + dy * np.sin(yaw)
         y_vehicle = -dx * np.sin(yaw) + dy * np.cos(yaw)
         return (x_vehicle, y_vehicle)
@@ -559,10 +696,17 @@ class PurePursuit(Node):
         else:
             self.get_logger().error(f"Lane {lane_name} does not exist")
 
-    def get_yaw_from_pose(self, orientation):
-        # Convert quaternion to yaw
-        siny_cosp = 2 * (orientation.w * orientation.z + orientation.x * orientation.y)
-        cosy_cosp = 1 - 2 * (orientation.y * orientation.y + orientation.z * orientation.z)
+    # def get_yaw_from_pose(self, orientation):
+    #     # Convert quaternion to yaw
+    #     siny_cosp = 2 * (orientation.w * orientation.z + orientation.x * orientation.y)
+    #     cosy_cosp = 1 - 2 * (orientation.y * orientation.y + orientation.z * orientation.z)
+    #     return np.arctan2(siny_cosp, cosy_cosp)
+
+
+    def get_yaw_from_pose_only(self, pose):
+        q = pose.orientation
+        siny_cosp = 2 * (q.w * q.z + q.x * q.y)
+        cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z)
         return np.arctan2(siny_cosp, cosy_cosp)
 
 
